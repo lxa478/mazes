@@ -162,11 +162,11 @@ def execute():
         return image_list
 
     cell_size = 25
-    maze_width = 25
-    maze_height = 25
+    maze_width = 10
+    maze_height = 10
     maze = Maze(maze_width, maze_height)
 
-    grid_offset = 0
+    grid_offset = 5
     image_width = (maze_width * cell_size) + (grid_offset * 2) + 1
     image_height = (maze_height * cell_size) + (grid_offset * 2) + 1
 
@@ -179,7 +179,7 @@ def execute():
 
     step_images = create_maze(start_cell, maze)
 
-    img.save(sys.stdout, format="GIF", save_all=True, append_images=step_images, loop=True)
+    img.save(sys.stdout, format="GIF", save_all=True, append_images=step_images)
 
 if __name__ == "__main__":
     execute()
