@@ -1,4 +1,4 @@
-import sys, random, StringIO
+import random, SimpleHTTPServer, SocketServer
 from PIL import Image, ImageDraw
 
 
@@ -74,7 +74,7 @@ def execute():
 
 
     def draw_maze(current_cell, maze, last=False):
-        img = Image.new("RGBA", (image_width, image_height), (192,192,192))
+        img = Image.new("RGBA", (image_width, image_height), (224,224,224))
         draw = ImageDraw.Draw(img)
 
         for row in maze.grid:
@@ -161,16 +161,16 @@ def execute():
 
         return image_list
 
-    cell_size = 25
-    maze_width = 10
-    maze_height = 10
+    cell_size = 10
+    maze_width = 50
+    maze_height = 50
     maze = Maze(maze_width, maze_height)
 
     grid_offset = 5
     image_width = (maze_width * cell_size) + (grid_offset * 2) + 1
     image_height = (maze_height * cell_size) + (grid_offset * 2) + 1
 
-    img = Image.new("RGBA", (image_width, image_height), (192,192,192))
+    img = Image.new("RGBA", (image_width, image_height), (224,224,224))
 
     # Random Starting Cell
     start_x = random.randint(0, maze.height-1)
@@ -179,7 +179,7 @@ def execute():
 
     step_images = create_maze(start_cell, maze)
 
-    img.save(sys.stdout, format="GIF", save_all=True, append_images=step_images)
+    img.save("maze.gif", format="GIF", save_all=True, append_images=step_images)
 
 if __name__ == "__main__":
     execute()
