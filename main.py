@@ -1,185 +1,209 @@
-import random, SimpleHTTPServer, SocketServer
+import random
 from PIL import Image, ImageDraw
 
 
 class Cell(object):
-    def __init__(self, row, col):
-        self.N = True
-        self.E = True
-        self.S = True
-        self.W = True
+    def __init__(self, row, column):
         self.row = row
-        self.col = col
+        self.column = column
+        self.north = None
+        self.east = None
+        self.south = None
+        self.west = None
+        self.links = dict()
 
         self.visited = 'white'
 
+    def link(self, cell, bidi=True):
+        self.links[cell] = True
+        if bidi == True:
+            cell.link(self, False)
+        return self
 
-class Maze(object):
-    def __init__(self, width, height):
-        self.width = width
-        self.height = height
-        self.grid = [[Cell(row, col) for col in range(width)] for row in range(height)]
+    def unlink(self, cell, bidi=True):
+        try:
+            del self.links[cell]
+        except KeyError:
+            pass
 
-    def connect_cells(self, cell, direction):
-        if direction == 'N':
-            if cell.row > 0:
-                cell.N = False
-                self.grid[cell.row - 1][cell.col].S = False
+        if bidi == True:
+            cell.unlink(self, False)
+        return self
 
-        elif direction == 'E':
-            if cell.col + 1 < len(self.grid[0]):
-                cell.E = False
-                self.grid[cell.row][cell.col + 1].W = False
+    def getLinks(self):
+        return self.links.keys()
 
-        elif direction == 'S':
-            if cell.row + 1 < len(self.grid):
-                cell.S = False
-                self.grid[cell.row + 1][cell.col].N = False
+    def linked(self, cell):
+        return cell in self.links
 
-        elif direction == 'W':
-            if cell.col > 0:
-                cell.W = False
-                self.grid[cell.row][cell.col - 1].E = False
+    def neighbors(self):
+        neighbors = []
+        if self.north:
+            neighbors.append(self.north)
 
-        else:
-            return
+        if self.east:
+            neighbors.append(self.east)
 
-        return
+        if self.south:
+            neighbors.append(self.south)
 
+        if self.west:
+            neighbors.append(self.west)
 
-def execute():
+        return neighbors
 
-    def fill_cell(draw, cell, color=(0,0,0)):
-        x = (cell.col * cell_size) + grid_offset + 1
-        y = (cell.row * cell_size) + grid_offset + 1
-
-        draw.rectangle([(x, y), (x + cell_size - 1, y + cell_size - 1)], fill=color)
-
-
-    def outline_cell(draw, cell, color=(0,0,0)):
-        x = (cell.col * cell_size) + grid_offset
-        y = (cell.row * cell_size) + grid_offset
-
-        if cell.N:
-            draw.line([(x, y), (x + cell_size, y)], fill=color)
-
-        if cell.E:
-            draw.line([(x + cell_size, y), (x + cell_size, y + cell_size)], fill=color)
-
-        if cell.S:
-            draw.line([(x + cell_size, y + cell_size), (x, y + cell_size)], fill=color)
-
-        if cell.W:
-            draw.line([(x, y + cell_size), (x, y)], fill=color)
+    def __str__(self):
+        return "Index=[{}, {}]".format(self.row, self.column)
 
 
-    def draw_maze(current_cell, maze, last=False):
-        img = Image.new("RGBA", (image_width, image_height), (224,224,224))
+class Grid(object):
+    def __init__(self, rows, columns, cell_class=Cell):
+        self.rows = rows
+        self.columns = columns
+        self.cell_class = cell_class
+        self.grid = self._prepare_grid()
+        self._configure_cells()
+
+    def _prepare_grid(self):
+        return [[self.cell_class(row, column) for column in range(self.columns)] for row in range(self.rows)]
+
+    def _configure_cells(self):
+        for cell in self:
+            row = cell.row
+            col = cell.column
+            cell.north = self[row-1, col]
+            cell.east = self[row, col+1]
+            cell.south = self[row+1, col]
+            cell.west = self[row, col-1]
+
+    def random_cell(self):
+        return self[random.randint(0, self.rows-1), random.randint(0, self.columns-1)]
+
+    def __getitem__(self, pos):
+        row, col = pos
+
+        if not (0 <= row < self.rows):
+            return None
+
+        if not (0 <= col < self.columns):
+            return None
+
+        return self.grid[row][col]
+
+    def __iter__(self):
+        for row in self.grid:
+            for cell in row:
+                yield cell
+
+    def __len__(self):
+        return self.rows * self. columns
+
+class GridImager(object):
+    def __init__(self, cell_size=10, grid_offset=5):
+        self.cell_size = cell_size
+        self.grid_offset = grid_offset
+        self.background_color = (224, 224, 224)
+
+    def fill_cell(self, draw, cell, color=(255, 255, 255)):
+        x = (cell.column * self.cell_size) + self.grid_offset + 1
+        y = (cell.row * self.cell_size) + self.grid_offset + 1
+
+        draw.rectangle([(x, y), (x + self.cell_size - 1, y + self.cell_size - 1)], fill=color)
+
+    def outline_cell(self, draw, cell, color=(0, 0, 0)):
+        x = (cell.column * self.cell_size) + self.grid_offset
+        y = (cell.row * self.cell_size) + self.grid_offset
+
+        if not cell.linked(cell.north):
+            draw.line([(x, y), (x + self.cell_size, y)], fill=color)
+
+        if not cell.linked(cell.east):
+            draw.line([(x + self.cell_size, y), (x + self.cell_size, y + self.cell_size)], fill=color)
+
+        if not cell.linked(cell.south):
+            draw.line([(x + self.cell_size, y + self.cell_size), (x, y + self.cell_size)], fill=color)
+
+        if not cell.linked(cell.west):
+            draw.line([(x, y + self.cell_size), (x, y)], fill=color)
+
+    def snapshot(self, grid, current_cell=None):
+        width = grid.columns
+        height = grid.rows
+        image_width = (width * self.cell_size) + (self.grid_offset * 2) + 1
+        image_height = (height * self.cell_size) + (self.grid_offset * 2) + 1
+
+        img = Image.new("RGBA", (image_width, image_height), (224, 224, 224))
         draw = ImageDraw.Draw(img)
 
-        for row in maze.grid:
-            for cell in row:
-                #Fill Cell
-                if cell.visited == 'black':
-                    fill_cell(draw, cell, color=(255,255,255))
+        for cell in grid:
+            # Fill Cell
+            if cell.visited == 'black':
+                self.fill_cell(draw, cell, color=(255, 255, 255))
 
-                if cell.visited == 'grey':
-                    fill_cell(draw, cell, color=(255,204,204))
+            if cell.visited == 'grey':
+                self.fill_cell(draw, cell, color=(255, 204, 204))
 
-                if cell.visited == 'white':
-                    fill_cell(draw, cell, color=(192,192,192))
+            if cell.visited == 'white':
+                self.fill_cell(draw, cell, color=(192, 192, 192))
 
-                # Outline Cell
-                outline_cell(draw, cell, color=(0,0,0))
+            # Outline Cell
+            self.outline_cell(draw, cell)
 
-        if not last:
-            fill_cell(draw, current_cell, color=(255, 153, 153))
+        if current_cell:
+            self.fill_cell(draw, current_cell, color=(255, 153, 153))
 
         del draw
         return img
 
+class RecursiveBacktrackingMaze(object):
+    def __init__(self, grid, imager):
+        self.grid = grid
+        self.imager = imager
+        self.snapshot_images = []
+        self._build()
 
-    def get_available_cells(cell, maze):
-        i = cell.row
-        j = cell.col
-        w = maze.width
-        h = maze.height
-        available_cells = []
+    def _available_neighbors(self, cell):
+        return [neighbor for neighbor in cell.neighbors() if neighbor.visited == 'white']
 
-        if i > 0:
-            next_cell = maze.grid[i - 1][j]
-            if next_cell.visited == 'white':
-                available_cells.append((next_cell, 'N'))
-
-        if j + 1 < w:
-            next_cell = maze.grid[i][j + 1]
-            if next_cell.visited == 'white':
-                available_cells.append((next_cell, 'E'))
-
-        if i + 1 < h:
-            next_cell = maze.grid[i + 1][j]
-            if next_cell.visited == 'white':
-                available_cells.append((next_cell, 'S'))
-
-        if j > 0:
-            next_cell = maze.grid[i][j - 1]
-            if next_cell.visited == 'white':
-                available_cells.append((next_cell, 'W'))
-
-        return available_cells
-
-
-    def create_maze(start_cell, maze, image_list=None):
+    def _build(self):
+        start_cell = self.grid.random_cell()
         stack = [start_cell]
-
-        if not image_list:
-            image_list = []
 
         while stack:
             cell = stack.pop()
             cell.visited = 'grey'
-            image_list.append(draw_maze(cell, maze))
+            available_cells = self._available_neighbors(cell)
 
-            available_cells = get_available_cells(cell, maze)
+            self._snapshot(current_cell=cell)
+
             while available_cells:
-                image_list.append(draw_maze(cell, maze))
-                next_cell, direction = available_cells[random.randint(0, len(available_cells)-1)]
-                maze.connect_cells(cell, direction)
+                self._snapshot(current_cell=cell)
+
+                next_cell = random.choice(available_cells)
+                cell.link(next_cell)
                 next_cell.visited = 'grey'
                 stack.append(cell)
                 stack.append(next_cell)
-                available_cells = get_available_cells(next_cell, maze)
+                available_cells = self._available_neighbors(next_cell)
                 cell = next_cell
 
             cell.visited = 'black'
 
-        # Entry and Exit Points
-        maze.grid[0][0].N = False
-        maze.grid[maze.height-1][maze.width-1].S = False
+        self._snapshot()
 
-        image_list.append(draw_maze(start_cell, maze, last=True))
+    def _snapshot(self, current_cell=None):
+        img = self.imager.snapshot(self.grid, current_cell)
+        self.snapshot_images.append(img)
 
-        return image_list
+    def save_animation(self, file_name="maze.gif"):
+        img = self.imager.snapshot(self.grid)
+        img.save("maze.gif", format="GIF", save_all=True, append_images=self.snapshot_images)
 
-    cell_size = 10
-    maze_width = 50
-    maze_height = 50
-    maze = Maze(maze_width, maze_height)
 
-    grid_offset = 5
-    image_width = (maze_width * cell_size) + (grid_offset * 2) + 1
-    image_height = (maze_height * cell_size) + (grid_offset * 2) + 1
+def execute():
 
-    img = Image.new("RGBA", (image_width, image_height), (224,224,224))
-
-    # Random Starting Cell
-    start_x = random.randint(0, maze.height-1)
-    start_y = random.randint(0, maze.width-1)
-    start_cell = maze.grid[start_x][start_y]
-
-    step_images = create_maze(start_cell, maze)
-
-    img.save("maze.gif", format="GIF", save_all=True, append_images=step_images)
+    maze = RecursiveBacktrackingMaze(Grid(10, 10), GridImager())
+    maze.save_animation()
 
 if __name__ == "__main__":
     execute()
