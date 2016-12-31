@@ -113,30 +113,27 @@ class GridImager(object):
     def draw_cell(self, bitmap, cell, color):
         x = (cell.column * self.cell_size) + self.grid_offset
         y = (cell.row * self.cell_size) + self.grid_offset
-        n_wall_color = (255, 0, 255)
-        e_wall_color = (0, 125, 0)
-        s_wall_color = (0, 0, 255)
-        w_wall_color = (255, 255, 0)
+        wall_color = (0, 0, 0)
 
         for i in range(x, x + self.cell_size):
             for j in range(y, y + self.cell_size):
                 bitmap[i, j] = color
 
-        #if not cell.linked(cell.north):
-        #    for i in range(x, x + self.cell_size):
-        #        bitmap[i, y] = n_wall_color
+        if not cell.linked(cell.north):
+            for i in range(x, x + self.cell_size):
+                bitmap[i, y] = wall_color
 
-        #if not cell.linked(cell.east):
-        #    for i in range(y, y + self.cell_size):
-        #        bitmap[x + self.cell_size, i] = e_wall_color
+        if not cell.linked(cell.east):
+            for i in range(y, y + self.cell_size):
+                bitmap[x + self.cell_size, i] = wall_color
 
-        #if not cell.linked(cell.south):
-        #    for i in range(x, x + self.cell_size):
-        #        bitmap[i, y + self.cell_size] = s_wall_color
+        if not cell.linked(cell.south):
+            for i in range(x, x + self.cell_size):
+                bitmap[i, y + self.cell_size] = wall_color
 
-        #if not cell.linked(cell.west):
-        #    for i in range(y, y + self.cell_size):
-        #        bitmap[x, i] = w_wall_color
+        if not cell.linked(cell.west):
+            for i in range(y, y + self.cell_size):
+                bitmap[x, i] = wall_color
 
     def snapshot(self, grid, current_cell=None):
         width = grid.columns
@@ -144,7 +141,7 @@ class GridImager(object):
         image_width = (width * self.cell_size) + (self.grid_offset * 2) + 1
         image_height = (height * self.cell_size) + (self.grid_offset * 2) + 1
 
-        img = Image.new("RGB", (image_width, image_height), (224, 224, 224))
+        img = Image.new("RGB", (image_width, image_height), 'grey')
         bitmap = img.load()
 
         # Fill Cell
@@ -152,10 +149,10 @@ class GridImager(object):
             if cell.visited == 'black':
                 self.draw_cell(bitmap, cell, color=(255, 255, 255))
 
-            elif cell.visited == 'grey':
+            if cell.visited == 'grey':
                 self.draw_cell(bitmap, cell, color=(255, 204, 204))
 
-            else:
+            if cell.visited == 'white':
                 self.draw_cell(bitmap, cell, color=(192, 192, 192))
 
         if current_cell:
@@ -264,7 +261,7 @@ class BFSSolver(Solver):
         current = end
         while current:
             current.visited = 'black'
-            self._snapshot()
+            self._snapshot(current_cell=current)
             current = came_from[current]
 
         self._snapshot()
