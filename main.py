@@ -109,37 +109,34 @@ class GridImager(object):
     def __init__(self, cell_size=10, grid_offset=5):
         self.cell_size = cell_size
         self.grid_offset = grid_offset
-        self.background_color = (224, 224, 224)
 
-    def fill_cell(self, bitmap, cell, color=(255, 255, 255)):
-        x = (cell.column * self.cell_size) + self.grid_offset + 1
-        y = (cell.row * self.cell_size) + self.grid_offset + 1
+    def draw_cell(self, bitmap, cell, color):
+        x = (cell.column * self.cell_size) + self.grid_offset
+        y = (cell.row * self.cell_size) + self.grid_offset
+        n_wall_color = (255, 0, 255)
+        e_wall_color = (0, 125, 0)
+        s_wall_color = (0, 0, 255)
+        w_wall_color = (255, 255, 0)
 
         for i in range(x, x + self.cell_size):
             for j in range(y, y + self.cell_size):
                 bitmap[i, j] = color
 
-        #draw.rectangle([(x, y), (x + self.cell_size - 1, y + self.cell_size - 1)], fill=color)
+        #if not cell.linked(cell.north):
+        #    for i in range(x, x + self.cell_size):
+        #        bitmap[i, y] = n_wall_color
 
-    def outline_cell(self, bitmap, cell, color=(0, 0, 0)):
-        x = (cell.column * self.cell_size) + self.grid_offset
-        y = (cell.row * self.cell_size) + self.grid_offset
+        #if not cell.linked(cell.east):
+        #    for i in range(y, y + self.cell_size):
+        #        bitmap[x + self.cell_size, i] = e_wall_color
 
-        if not cell.linked(cell.north):
-            for i in range(x, x + self.cell_size):
-                bitmap[i, y] = color
+        #if not cell.linked(cell.south):
+        #    for i in range(x, x + self.cell_size):
+        #        bitmap[i, y + self.cell_size] = s_wall_color
 
-        if not cell.linked(cell.east):
-            for i in range(y, y + self.cell_size):
-                bitmap[x + self.cell_size, i] = color
-
-        if not cell.linked(cell.south):
-            for i in range(x, x + self.cell_size):
-                bitmap[i, y + self.cell_size] = color
-
-        if not cell.linked(cell.west):
-            for i in range(y, y + self.cell_size):
-                bitmap[x, i] = color
+        #if not cell.linked(cell.west):
+        #    for i in range(y, y + self.cell_size):
+        #        bitmap[x, i] = w_wall_color
 
     def snapshot(self, grid, current_cell=None):
         width = grid.columns
@@ -147,25 +144,22 @@ class GridImager(object):
         image_width = (width * self.cell_size) + (self.grid_offset * 2) + 1
         image_height = (height * self.cell_size) + (self.grid_offset * 2) + 1
 
-        img = Image.new("RGBA", (image_width, image_height), (224, 224, 224, 255))
+        img = Image.new("RGB", (image_width, image_height), (224, 224, 224))
         bitmap = img.load()
 
+        # Fill Cell
         for cell in grid:
-            # Fill Cell
             if cell.visited == 'black':
-                self.fill_cell(bitmap, cell, color=(255, 255, 255, 0))
+                self.draw_cell(bitmap, cell, color=(255, 255, 255))
 
-            if cell.visited == 'grey':
-                self.fill_cell(bitmap, cell, color=(255, 204, 204, 255))
+            elif cell.visited == 'grey':
+                self.draw_cell(bitmap, cell, color=(255, 204, 204))
 
-            if cell.visited == 'white':
-                self.fill_cell(bitmap, cell, color=(192, 192, 192, 255))
-
-            # Outline Cell
-            self.outline_cell(bitmap, cell)
+            else:
+                self.draw_cell(bitmap, cell, color=(192, 192, 192))
 
         if current_cell:
-            self.fill_cell(bitmap, current_cell, color=(255, 153, 153, 255))
+            self.draw_cell(bitmap, current_cell, color=(255, 153, 153))
 
         return img
 
@@ -251,6 +245,7 @@ class BFSSolver(Solver):
         end = self.grid[self.grid.rows-1, self.grid.columns-1]
         frontier = [start]
         came_from = {start: None}
+        self._snapshot()
 
         while frontier:
             current = frontier.pop(0)
@@ -259,18 +254,17 @@ class BFSSolver(Solver):
                 break
 
             for cell in current.getLinks():
+                cell.visited = 'grey'
                 if cell not in came_from:
                     frontier.append(cell)
                     came_from[cell] = current
-                cell.visited = 'grey'
-                self._snapshot()
             self._snapshot()
         self._snapshot()
 
         current = end
         while current:
             current.visited = 'black'
-            self._snapshot(current_cell=current)
+            self._snapshot()
             current = came_from[current]
 
         self._snapshot()
