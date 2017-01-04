@@ -3,3 +3,8 @@
 *.pyo
 *.pyc
 .DS_Store
+
+*.gif
+*.png
+*.jpg
+*.jpeg
