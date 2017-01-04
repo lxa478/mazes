@@ -107,72 +107,80 @@ class Grid(object):
 
 
 class GridImager(object):
-    def __init__(self, cell_size=10, grid_offset=5, cell_gutter=2):
+    def __init__(self, cell_size=10, cell_inset=2):
         self.cell_size = cell_size
-        self.grid_offset = grid_offset
-        self.cell_gutter = cell_gutter
-        self.background_color = (224, 224, 224)
+        self.cell_inset = cell_inset
+        self.background_color = (255, 255, 255)
 
-    def draw_cell(self, draw, cell, cell_color=(255, 255, 255), wall_color=(0, 0, 0)):
-        x = (cell.column * self.cell_size) + self.grid_offset + (cell.column * self.cell_gutter) + self.cell_gutter
-        y = (cell.row * self.cell_size) + self.grid_offset + (cell.row * self.cell_gutter) + self.cell_gutter
+    def cell_coordinates(self, x, y):
+        x1 = x
+        x4 = x + self.cell_size
+        x2 = x1 + self.cell_inset
+        x3 = x4 - self.cell_inset
 
-        # Fill
-        draw.rectangle([
-            (x, y),
-            (x + self.cell_size - self.cell_gutter, y + self.cell_size - self.cell_gutter)
-        ], fill=cell_color)
+        y1 = y
+        y4 = y + self.cell_size
+        y2 = y1 + self.cell_inset
+        y3 = y4 - self.cell_inset
 
-        link_north = 0
-        link_east = 0
-        link_south = 0
-        link_west = 0
+        return x1, x2, x3, x4, y1, y2, y3, y4
 
+    def draw_cell(self, draw, cell, x, y, cell_color=(255, 255, 255), wall_color=(0, 0, 0), inset_color=(224, 224, 224)):
+
+        x1, x2, x3, x4, y1, y2, y3, y4 = self.cell_coordinates(x, y)
+
+        # Fill Cell
+        draw.rectangle([(x1, y1), (x4, y4)], fill=cell_color)
+
+        # Fill Walls
+        if not cell.linked(cell.north):
+            draw.rectangle([(x1, y1), (x4, y2)], fill=inset_color)
+        else:
+            draw.rectangle([(x1, y1), (x2, y2)], fill=inset_color)
+
+        if not cell.linked(cell.east):
+            draw.rectangle([(x3, y1), (x4, y4)], fill=inset_color)
+        else:
+            draw.rectangle([(x3, y1), (x4, y2)], fill=inset_color)
+
+        if not cell.linked(cell.south):
+            draw.rectangle([(x1, y3), (x4, y4)], fill=inset_color)
+        else:
+            draw.rectangle([(x3, y3), (x4, y4)], fill=inset_color)
+
+        if not cell.linked(cell.west):
+            draw.rectangle([(x1, y1), (x2, y4)], fill=inset_color)
+        else:
+            draw.rectangle([(x1, y3), (x2, y4)], fill=inset_color)
+
+        # Trace Walls
         if cell.linked(cell.north):
-            link_north = self.cell_gutter * 2
+            draw.line([(x2, y1), (x2, y2)], fill=wall_color)
+            draw.line([(x3, y1), (x3, y2)], fill=wall_color)
+        else:
+            draw.line([(x2, y2), (x3, y2)], fill=wall_color)
 
         if cell.linked(cell.east):
-            link_east = self.cell_gutter * 2
+            draw.line([(x3, y2), (x4, y2)], fill=wall_color)
+            draw.line([(x3, y3), (x4, y3)], fill=wall_color)
+        else:
+            draw.line([(x3, y2), (x3, y3)], fill=wall_color)
 
         if cell.linked(cell.south):
-            link_south = self.cell_gutter * 2
+            draw.line([(x2, y3), (x2, y4)], fill=wall_color)
+            draw.line([(x3, y3), (x3, y4)], fill=wall_color)
+        else:
+            draw.line([(x2, y3), (x3, y3)], fill=wall_color)
 
         if cell.linked(cell.west):
-            link_west = self.cell_gutter * 2
-
-        # North Wall
-        if not cell.linked(cell.north):
-            draw.line([
-                (x - link_west, y),
-                (x + self.cell_size - self.cell_gutter + link_east, y)
-            ], fill=wall_color)
-
-        # East Wall
-        if not cell.linked(cell.east):
-            draw.line([
-                (x + self.cell_size - self.cell_gutter, y + self.cell_size - self.cell_gutter + link_south),
-                (x + self.cell_size - self.cell_gutter, y - link_north)
-            ], fill=wall_color)
-
-        # South Wall
-        if not cell.linked(cell.south):
-            draw.line([
-                (x + self.cell_size - self.cell_gutter + link_east, y + self.cell_size - self.cell_gutter),
-                (x - link_west, y + self.cell_size - self.cell_gutter)
-            ], fill=wall_color)
-
-        # West Wall
-        if not cell.linked(cell.west):
-            draw.line([
-                (x, y - link_north),
-                (x, y + self.cell_size - self.cell_gutter + link_south)
-            ], fill=wall_color)
+            draw.line([(x1, y2), (x2, y2)], fill=wall_color)
+            draw.line([(x1, y3), (x2, y3)], fill=wall_color)
+        else:
+            draw.line([(x2, y2), (x2, y3)], fill=wall_color)
 
     def snapshot(self, grid, current_cell=None):
-        width = grid.columns
-        height = grid.rows
-        image_width = (width * self.cell_size) + (self.grid_offset * 2) + (width * self.cell_gutter) + 1
-        image_height = (height * self.cell_size) + (self.grid_offset * 2) + (height * self.cell_gutter) + 1
+        image_width = self.cell_size * grid.columns
+        image_height = self.cell_size * grid.rows
 
         img = Image.new("RGBA", (image_width, image_height), self.background_color)
         draw = ImageDraw.Draw(img)
@@ -192,7 +200,10 @@ class GridImager(object):
             if cell is current_cell:
                 cell_color = (255, 153, 153)
 
-            self.draw_cell(draw, cell, cell_color)
+            x = cell.column * self.cell_size
+            y = cell.row * self.cell_size
+
+            self.draw_cell(draw, cell, x, y, cell_color)
 
         del draw
         return img
@@ -244,10 +255,10 @@ class RecursiveBacktrackingMaze(object):
         self.snapshot_images.append(img)
 
     def save_animation(self, file_name="maze.gif"):
-        # img = self.snapshot_images[0]
-        # img.save(file_name, format="GIF", save_all=True, append_images=self.snapshot_images)
-        img = self.snapshot_images[-1]
-        img.save(file_name, format="GIF")
+        img = self.snapshot_images[0]
+        img.save(file_name, format="GIF", save_all=True, append_images=self.snapshot_images)
+        # img = self.snapshot_images[-1]
+        # img.save(file_name, format="GIF")
 
 class Solver(object):
     def __init__(self, grid, imager):
@@ -311,7 +322,7 @@ class AStarSolver(Solver):
 
 def execute():
 
-    maze = RecursiveBacktrackingMaze(Grid(10, 10), GridImager(cell_size=25, cell_gutter=2))
+    maze = RecursiveBacktrackingMaze(Grid(10, 10), GridImager(cell_size=25, cell_inset=1))
     maze.save_animation()
 
     #grid = Grid(10, 10)
