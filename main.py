@@ -103,70 +103,104 @@ class Grid(object):
                 yield cell
 
     def __len__(self):
-        return self.rows * self. columns
+        return self.rows * self.columns
+
 
 class GridImager(object):
-    def __init__(self, cell_size=10, grid_offset=5):
+    def __init__(self, cell_size=10, grid_offset=5, cell_gutter=2):
         self.cell_size = cell_size
         self.grid_offset = grid_offset
+        self.cell_gutter = cell_gutter
+        self.background_color = (224, 224, 224)
 
-    def draw_cell(self, bitmap, cell, color):
-        x = (cell.column * self.cell_size) + self.grid_offset
-        y = (cell.row * self.cell_size) + self.grid_offset
-        wall_color = (0, 0, 0)
+    def draw_cell(self, draw, cell, cell_color=(255, 255, 255), wall_color=(0, 0, 0)):
+        x = (cell.column * self.cell_size) + self.grid_offset + (cell.column * self.cell_gutter) + self.cell_gutter
+        y = (cell.row * self.cell_size) + self.grid_offset + (cell.row * self.cell_gutter) + self.cell_gutter
 
-        for i in range(x, x + self.cell_size):
-            for j in range(y, y + self.cell_size):
-                bitmap[i, j] = color
+        # Fill
+        draw.rectangle([
+            (x, y),
+            (x + self.cell_size - self.cell_gutter, y + self.cell_size - self.cell_gutter)
+        ], fill=cell_color)
 
+        link_north = 0
+        link_east = 0
+        link_south = 0
+        link_west = 0
+
+        if cell.linked(cell.north):
+            link_north = self.cell_gutter * 2
+
+        if cell.linked(cell.east):
+            link_east = self.cell_gutter * 2
+
+        if cell.linked(cell.south):
+            link_south = self.cell_gutter * 2
+
+        if cell.linked(cell.west):
+            link_west = self.cell_gutter * 2
+
+        # North Wall
         if not cell.linked(cell.north):
-            for i in range(x, x + self.cell_size):
-                bitmap[i, y] = wall_color
+            draw.line([
+                (x - link_west, y),
+                (x + self.cell_size - self.cell_gutter + link_east, y)
+            ], fill=wall_color)
 
+        # East Wall
         if not cell.linked(cell.east):
-            for i in range(y, y + self.cell_size):
-                bitmap[x + self.cell_size, i] = wall_color
+            draw.line([
+                (x + self.cell_size - self.cell_gutter, y + self.cell_size - self.cell_gutter + link_south),
+                (x + self.cell_size - self.cell_gutter, y - link_north)
+            ], fill=wall_color)
 
+        # South Wall
         if not cell.linked(cell.south):
-            for i in range(x, x + self.cell_size):
-                bitmap[i, y + self.cell_size] = wall_color
+            draw.line([
+                (x + self.cell_size - self.cell_gutter + link_east, y + self.cell_size - self.cell_gutter),
+                (x - link_west, y + self.cell_size - self.cell_gutter)
+            ], fill=wall_color)
 
+        # West Wall
         if not cell.linked(cell.west):
-            for i in range(y, y + self.cell_size):
-                bitmap[x, i] = wall_color
+            draw.line([
+                (x, y - link_north),
+                (x, y + self.cell_size - self.cell_gutter + link_south)
+            ], fill=wall_color)
 
     def snapshot(self, grid, current_cell=None):
         width = grid.columns
         height = grid.rows
-        image_width = (width * self.cell_size) + (self.grid_offset * 2) + 1
-        image_height = (height * self.cell_size) + (self.grid_offset * 2) + 1
+        image_width = (width * self.cell_size) + (self.grid_offset * 2) + (width * self.cell_gutter) + 1
+        image_height = (height * self.cell_size) + (self.grid_offset * 2) + (height * self.cell_gutter) + 1
 
-        img = Image.new("RGB", (image_width, image_height), 'grey')
-        bitmap = img.load()
+        img = Image.new("RGBA", (image_width, image_height), self.background_color)
+        draw = ImageDraw.Draw(img)
 
-        # Fill Cell
         for cell in grid:
+            cell_color = (255, 153, 153)
+
             if cell.visited == 'black':
-                self.draw_cell(bitmap, cell, color=(255, 255, 255))
+                cell_color = (255, 255, 255)
 
             if cell.visited == 'grey':
-                self.draw_cell(bitmap, cell, color=(255, 204, 204))
+                cell_color = (255, 204, 204)
 
             if cell.visited == 'white':
-                self.draw_cell(bitmap, cell, color=(192, 192, 192))
+                cell_color = (192, 192, 192)
 
-        if current_cell:
-            self.draw_cell(bitmap, current_cell, color=(255, 153, 153))
+            if cell is current_cell:
+                cell_color = (255, 153, 153)
 
+            self.draw_cell(draw, cell, cell_color)
+
+        del draw
         return img
 
-class OpenMaze(object):
-    def __init__(self, grid):
-        self.grid = grid
-        self._build()
-
-    def _build(self):
-        for cell in self.grid:
+class Open(object):
+    @staticmethod
+    def apply(grid):
+        for cell in grid:
             for neighbor in cell.neighbors():
                 cell.link(neighbor)
 
@@ -178,9 +212,6 @@ class RecursiveBacktrackingMaze(object):
         self.snapshot_images = []
         self._build()
 
-    def _available_neighbors(self, cell):
-        return [neighbor for neighbor in cell.neighbors() if neighbor.visited == 'white']
-
     def _build(self):
         start_cell = self.grid.random_cell()
         stack = [start_cell]
@@ -188,7 +219,8 @@ class RecursiveBacktrackingMaze(object):
         while stack:
             cell = stack.pop()
             cell.visited = 'grey'
-            available_cells = self._available_neighbors(cell)
+
+            available_cells = [neighbor for neighbor in cell.neighbors() if neighbor.visited == 'white']
 
             self._snapshot(current_cell=cell)
 
@@ -200,7 +232,7 @@ class RecursiveBacktrackingMaze(object):
                 next_cell.visited = 'grey'
                 stack.append(cell)
                 stack.append(next_cell)
-                available_cells = self._available_neighbors(next_cell)
+                available_cells = [neighbor for neighbor in next_cell.neighbors() if neighbor.visited == 'white']
                 cell = next_cell
 
             cell.visited = 'black'
@@ -212,9 +244,10 @@ class RecursiveBacktrackingMaze(object):
         self.snapshot_images.append(img)
 
     def save_animation(self, file_name="maze.gif"):
-        img = self.imager.snapshot(self.grid)
-        img.save(file_name, format="GIF", save_all=True, append_images=self.snapshot_images)
-
+        # img = self.snapshot_images[0]
+        # img.save(file_name, format="GIF", save_all=True, append_images=self.snapshot_images)
+        img = self.snapshot_images[-1]
+        img.save(file_name, format="GIF")
 
 class Solver(object):
     def __init__(self, grid, imager):
@@ -233,7 +266,7 @@ class Solver(object):
 
     def save_animation(self, file_name="maze.gif"):
         img = self.snapshot_images[0]
-        img.save(file_name, format="GIF", save_all=True, append_images=self.snapshot_images, transparency=255)
+        img.save(file_name, format="GIF", save_all=True, append_images=self.snapshot_images)
 
 
 class BFSSolver(Solver):
@@ -278,14 +311,21 @@ class AStarSolver(Solver):
 
 def execute():
 
-    grid = Grid(10, 10)
-    imager = GridImager()
-    maze = RecursiveBacktrackingMaze(grid, imager)
+    maze = RecursiveBacktrackingMaze(Grid(10, 10), GridImager(cell_size=25, cell_gutter=2))
+    maze.save_animation()
+
+    #grid = Grid(10, 10)
+    #RecursiveBacktracking.apply(grid)
+
+    #imager = GridImager()
+    #img = imager.snapshot(grid)
+    #img.save("maze.png", format="PNG")
+
     # maze = OpenMaze(grid)
     # maze.save_animation()
 
-    solver = BFSSolver(grid, imager)
-    solver.save_animation()
+    # solver = BFSSolver(grid, imager)
+    # solver.save_animation()
 
 
 
