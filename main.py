@@ -110,7 +110,7 @@ class GridImager(object):
     def __init__(self, cell_size=10, cell_inset=2):
         self.cell_size = cell_size
         self.cell_inset = cell_inset
-        self.background_color = (255, 255, 255)
+        self.background_color = (224, 224, 224)
 
     def cell_coordinates(self, x, y):
         x1 = x
@@ -130,7 +130,7 @@ class GridImager(object):
         x1, x2, x3, x4, y1, y2, y3, y4 = self.cell_coordinates(x, y)
 
         # Fill Cell
-        draw.rectangle([(x1, y1), (x4, y4)], fill=cell_color)
+        draw.rectangle([(x1, y1), (x4, y4)], fill=cell_color, outline=inset_color)
 
         # Fill Walls
         if not cell.linked(cell.north):
@@ -182,11 +182,11 @@ class GridImager(object):
         image_width = self.cell_size * grid.columns
         image_height = self.cell_size * grid.rows
 
-        img = Image.new("RGBA", (image_width, image_height), self.background_color)
+        img = Image.new("RGBA", (image_width, image_height), (224, 224, 224, 255))
         draw = ImageDraw.Draw(img)
 
         for cell in grid:
-            cell_color = (255, 153, 153)
+            cell_color = (255, 204, 204)
 
             if cell.visited == 'black':
                 cell_color = (255, 255, 255)
@@ -236,15 +236,15 @@ class RecursiveBacktrackingMaze(object):
             self._snapshot(current_cell=cell)
 
             while available_cells:
-                self._snapshot(current_cell=cell)
-
                 next_cell = random.choice(available_cells)
-                cell.link(next_cell)
                 next_cell.visited = 'grey'
+                cell.link(next_cell)
                 stack.append(cell)
                 stack.append(next_cell)
-                available_cells = [neighbor for neighbor in next_cell.neighbors() if neighbor.visited == 'white']
                 cell = next_cell
+                available_cells = [neighbor for neighbor in cell.neighbors() if neighbor.visited == 'white']
+
+                self._snapshot(current_cell=cell)
 
             cell.visited = 'black'
 
@@ -257,15 +257,17 @@ class RecursiveBacktrackingMaze(object):
     def save_animation(self, file_name="maze.gif"):
         img = self.snapshot_images[0]
         img.save(file_name, format="GIF", save_all=True, append_images=self.snapshot_images)
-        # img = self.snapshot_images[-1]
-        # img.save(file_name, format="GIF")
+
+    def save_still(self, file_name="maze.gif"):
+        img = self.snapshot_images[-1]
+        img.save(file_name, format="GIF")
+
 
 class Solver(object):
     def __init__(self, grid, imager):
         self.grid = grid
         self.imager = imager
         self.snapshot_images = []
-        self.grid.reset_visited()
         self._solve()
 
     def _solve(self):
@@ -279,28 +281,31 @@ class Solver(object):
         img = self.snapshot_images[0]
         img.save(file_name, format="GIF", save_all=True, append_images=self.snapshot_images)
 
+    def save_still(self, file_name="maze.gif"):
+        img = self.snapshot_images[-1]
+        img.save(file_name, format="GIF")
+
 
 class BFSSolver(Solver):
     def _solve(self):
         start = self.grid[0, 0]
         end = self.grid[self.grid.rows-1, self.grid.columns-1]
+
         frontier = [start]
         came_from = {start: None}
-        self._snapshot()
 
         while frontier:
             current = frontier.pop(0)
+            current.visited = 'grey'
+            self._snapshot()
 
             if current is end:
                 break
 
             for cell in current.getLinks():
-                cell.visited = 'grey'
                 if cell not in came_from:
                     frontier.append(cell)
                     came_from[cell] = current
-            self._snapshot()
-        self._snapshot()
 
         current = end
         while current:
@@ -322,8 +327,10 @@ class AStarSolver(Solver):
 
 def execute():
 
-    maze = RecursiveBacktrackingMaze(Grid(10, 10), GridImager(cell_size=25, cell_inset=1))
-    maze.save_animation()
+    grid = Grid(10, 10)
+    grid_imager = GridImager(cell_size=10, cell_inset=1)
+    maze = RecursiveBacktrackingMaze(grid, grid_imager)
+    #maze.save_animation()
 
     #grid = Grid(10, 10)
     #RecursiveBacktracking.apply(grid)
@@ -335,8 +342,9 @@ def execute():
     # maze = OpenMaze(grid)
     # maze.save_animation()
 
-    # solver = BFSSolver(grid, imager)
-    # solver.save_animation()
+    grid.reset_visited()
+    solver = BFSSolver(grid, GridImager(cell_size=20, cell_inset=1))
+    solver.save_animation()
 
 
 
