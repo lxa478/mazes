@@ -296,16 +296,16 @@ class BFSSolver(Solver):
 
         while frontier:
             current = frontier.pop(0)
-            current.visited = 'grey'
-            self._snapshot()
 
             if current is end:
                 break
 
             for cell in current.getLinks():
                 if cell not in came_from:
+                    cell.visited = 'grey'
                     frontier.append(cell)
                     came_from[cell] = current
+                self._snapshot()
 
         current = end
         while current:
@@ -327,7 +327,7 @@ class AStarSolver(Solver):
 
 def execute():
 
-    grid = Grid(10, 10)
+    grid = Grid(20, 20)
     grid_imager = GridImager(cell_size=10, cell_inset=1)
     maze = RecursiveBacktrackingMaze(grid, grid_imager)
     #maze.save_animation()
